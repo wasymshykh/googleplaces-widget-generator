@@ -24,6 +24,35 @@ class Widget
         return false;
     }
 
+    public function get_widget_templates ()
+    {
+        $q = "SELECT * FROM `caches`";
+        $s = $this->db->prepare($q);
+        
+        if ($s->execute()) {
+            if ($s->rowCount() > 0) {
+                return $s->fetchAll();
+            }
+            return [];
+        }
+        return [];
+    }
+
+    public function delete_widgets_caches ($widgets)
+    {
+        $q = "DELETE FROM `caches` WHERE ";
+        $i = 0;
+        foreach ($widgets as $widget) {
+            if ($i > 0) {
+                $q .= ' OR ';
+            }
+            $q .= "(`cache_uuid` = '".$widget['uuid']."' AND `cache_template_id` = '".$widget['template_id']."')";
+            $i++;
+        }
+        $s = $this->db->prepare($q);
+        return $s->execute();
+    }
+
     public function get_rating_by ($col, $val, $multiple = false)
     {
         $q = "SELECT * FROM `ratings` WHERE `$col` = :v";
