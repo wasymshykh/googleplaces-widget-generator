@@ -37,3 +37,10 @@ function go($url)
     header("location: " . $url);
     die();
 }
+
+function put_response ($status_code, $type, $message)
+{
+    http_response_code($status_code);
+    echo json_encode(['code' => $status_code, 'type' => $type, 'message' => $message]);
+    die();
+}
