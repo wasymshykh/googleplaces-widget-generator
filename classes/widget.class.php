@@ -102,6 +102,65 @@ class Widget
         return false;
     }
 
+    public function replace_placeholders ($html, $rating)
+    {
+        $replaced = str_replace('{#aggregate}', $rating['rating_aggregate'], $html);
+        $replaced = str_replace('{#reviews_total}', $rating['rating_reviews'], $replaced);
+        $replaced = str_replace('{#stars_id}', $this->get_svg_star_html_id($rating['rating_aggregate']), $replaced);
+
+        return $replaced;
+    }
+
+    public function get_svg_star_html_id ($aggregate)
+    {
+        // stars-5-0-star
+        $stars_id = 'stars-0-0-star';
+        if ($aggregate > 0 && $aggregate <= 0.5) {
+            $stars_id = 'stars-0-5-star';
+        } else if ($aggregate > 0.5 && $aggregate <= 1) {
+            $stars_id = 'stars-1-0-star';
+        } else if ($aggregate > 1 && $aggregate <= 1.5) {
+            $stars_id = 'stars-1-5-star';
+        } else if ($aggregate > 1.5 && $aggregate <= 2) {
+            $stars_id = 'stars-2-0-star';
+        } else if ($aggregate > 2 && $aggregate <= 2.5) {
+            $stars_id = 'stars-2-5-star';
+        } else if ($aggregate > 2.5 && $aggregate <= 3) {
+            $stars_id = 'stars-3-0-star';
+        } else if ($aggregate > 3 && $aggregate <= 3.5) {
+            $stars_id = 'stars-3-5-star';
+        } else if ($aggregate > 3.5 && $aggregate <= 4) {
+            $stars_id = 'stars-4-0-star';
+        } else if ($aggregate > 4 && $aggregate <= 4.5) {
+            $stars_id = 'stars-4-5-star';
+        } else if ($aggregate > 4.5 && $aggregate <= 5) {
+            $stars_id = 'stars-5-0-star';
+        }
+        
+        return $stars_id;
+    }
+
+    public function insert_widget_cache ($uuid, $template_id, $html, $update = false)
+    {
+        if ($update) {
+            $q = "UPDATE `caches` SET `cache_html` = :h, `cache_created` = :c WHERE `cache_uuid` = :u, `cache_template_id` = :t";
+        } else {
+            $q = "INSERT INTO `caches` (`cache_uuid`, `cache_template_id`, `cache_html`, `cache_created`) VALUE (:u, :t, :h, :c)";
+        }
+        
+        $s = $this->db->prepare($q);
+        $s->bindParam(':u', $uuid);
+        $s->bindParam(':t', $template_id);
+        $s->bindParam(':h', $html);
+        $datetime = current_date();
+        $s->bindParam(':c', $datetime);
+
+        if ($s->execute()) {
+            return $this->get_widget_template($uuid, $template_id);
+        }
+        return false;
+    }
+
 }
 
 
