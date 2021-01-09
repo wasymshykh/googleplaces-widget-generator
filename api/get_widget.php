@@ -72,6 +72,7 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             // cache not found, create a new widget cache
             
             // replacing placeholders in the html
+            $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
             $replaced_html = $w->replace_placeholders($template['template_html'], $rating);
             
             // adding/updating cache

@@ -27,7 +27,6 @@ class Customer
     {
         $q = "SELECT * FROM `customers`";
         $s = $this->db->prepare($q);
-        $s->bindParam(':v', $val);
         
         if ($s->execute()) {
             if ($s->rowCount() > 0) {

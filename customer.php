@@ -134,8 +134,8 @@ if (isset($_POST['update'])) {
 
     if (isset($_POST['uuid']) && isset($_POST['uuid']) && !empty($_POST['uuid'])) {
         $n_uuid = normal_text($_POST['uuid']);
-        $customer = $c->get_customer_by('customer_uuid', $n_uuid);
-        if ($customer) {
+        $n_customer = $c->get_customer_by('customer_uuid', $n_uuid);
+        if ($n_customer) {
             array_push($errors, 'Customer with same uuid exists');
         } else {
             if ($customer['customer_uuid'] !== $n_uuid) {
@@ -189,7 +189,7 @@ if (isset($_POST['update'])) {
         if ($result) {
             put_response(200, 'success', 'Customer is successfully updated.');
         } else {
-            put_response(500, 'error', 'Cannot delete the customer.');
+            put_response(500, 'error', 'Cannot update the customer.');
         }
     } else {
         put_response(200, 'success', 'No changes made.');
