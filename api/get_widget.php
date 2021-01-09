@@ -27,67 +27,62 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
         if ($template) {
 
             // checking if user's subscription allow template access
-            if ($user['customer_subscription'] === $template['template_subscription'] || $template['template_subscription'] === 'B') {
+            if ($user['customer_subscription'] !== $template['template_subscription'] && ($template['template_subscription'] === 'P' && $user['customer_subscription'] === 'F')) {
+                // user's subscription is F while template is P then choosing the first found free template
+                $template = $w->get_template_by('template_subscription', 'F');
 
-                // cache table query
-                $widget_cache = $w->get_widget_template($uuid, $template_id);
-                $check_for_expiry = true;
-                
-                // getting place rating records
-                $rating = $w->get_rating_by('rating_uuid', $user['customer_uuid']);
-
-                if ($rating) {
-                    // check the customer interval for refreshing place data
-                    $customer_interval = $user['customer_interval'];
-                    if (empty($customer_interval)) {
-                        $customer_interval = '30 days';
-                    }
-                    $interval_expiry = strtotime($customer_interval, strtotime($rating['rating_last_update']));
-                    $current_time = strtotime('now');
-                    if ($interval_expiry <= $current_time) {
-                        $rating = $w->update_place_data($user['customer_uuid'], $user['customer_place_id'], $settings->get('google_api_key'), true);
-                    }
-                } else {
-                    // getting new place data
-                    $rating = $w->update_place_data($user['customer_uuid'], $user['customer_place_id'], $settings->get('google_api_key'), false);
+                if (!$template) {
+                    put_response(400, 'error', 'no free template found.');
                 }
-
-                if (!$widget_cache) {
-                    // cache not found, create a new widget cache
-                    
-                    // replacing placeholders in the html
-                    $replaced_html = $w->replace_placeholders($template['template_html'], $rating);
-                    
-                    // adding cache
-                    $widget_cache = $w->insert_widget_cache($user['customer_uuid'], $template['template_id'], $replaced_html);
-                    // if cache insertion failed
-                    if (!$widget_cache) {
-                        put_response(500, 'error', 'Server cannot cache the request');
-                    }
-                    $check_for_expiry = false;
-                }
-                    
-                // cache found/inserted, check for cache expiry if it is older than setting's defined cache limit
-                if ($check_for_expiry) {
-                    $cache_lifetime = $settings->get('cache_lifetime');
-                    $widget_expiry = strtotime($cache_lifetime, strtotime($widget_cache['cache_created']));
-                    $current_time = strtotime('now');
-                    if ($widget_expiry <= $current_time) {
-                        // widget cache is expired
-                        $replaced_html = $w->replace_placeholders($template['template_html'], $rating);
-                        $widget_cache = $w->insert_widget_cache($user['customer_uuid'], $template['template_id'], $replaced_html, true);
-                        // if cache update failed
-                        if (!$widget_cache) {
-                            put_response(500, 'error', 'Server cannot update the cache');
-                        }
-                    }
-                }
-
-                put_response(200, 'success', $widget_cache['cache_html']);
-
-            } else {
-                put_response(403, 'error', 'Widget template cannot be requested in current subscription');
             }
+
+            // cache table query
+            $widget_cache = $w->get_widget_template($uuid, $template['template_id']);
+            $widget_cache_expired = false;
+
+            if ($widget_cache) {
+                $cache_lifetime = $settings->get('cache_lifetime');
+                $widget_expiry = strtotime($cache_lifetime, strtotime($widget_cache['cache_created']));
+                $current_time = strtotime('now');
+                if ($widget_expiry > $current_time) {
+                    put_response(200, 'success', $widget_cache['cache_html']);
+                } else {
+                    $widget_cache_expired = true;
+                }
+            }
+            
+            // getting place rating records
+            $rating = $w->get_rating_by('rating_uuid', $user['customer_uuid']);
+            if ($rating) {
+                // check the customer interval for refreshing place data
+                $customer_interval = $user['customer_interval'];
+                if (empty($customer_interval)) {
+                    $customer_interval = '30 days';
+                }
+                $interval_expiry = strtotime($customer_interval, strtotime($rating['rating_last_update']));
+                $current_time = strtotime('now');
+                if ($interval_expiry <= $current_time) {
+                    $rating = $w->update_place_data($user['customer_uuid'], $user['customer_place_id'], $settings->get('google_api_key'), true);
+                }
+            } else {
+                // getting new place data
+                $rating = $w->update_place_data($user['customer_uuid'], $user['customer_place_id'], $settings->get('google_api_key'), false);
+            }
+            
+            // cache not found, create a new widget cache
+            
+            // replacing placeholders in the html
+            $replaced_html = $w->replace_placeholders($template['template_html'], $rating);
+            
+            // adding/updating cache
+            $widget_cache = $w->insert_widget_cache($user['customer_uuid'], $template['template_id'], $replaced_html, $widget_cache_expired);
+            // if cache insertion failed
+            if (!$widget_cache) {
+                put_response(500, 'error', 'Server cannot cache the request');
+            }
+
+            put_response(200, 'success', $widget_cache['cache_html']);
+
         } else {
             put_response(403, 'error', 'Invalid template');
         }

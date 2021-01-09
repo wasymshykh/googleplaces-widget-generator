@@ -70,11 +70,12 @@ class Widget
 
     public function update_place_data ($uuid, $place_id, $api_key, $existing)
     {
-        $content = file_get_contents("https://maps.googleapis.com/maps/api/place/details/json?place_id=$place_id&fields=name,rating,user_ratings_total,formatted_phone_number&key=$api_key");
+        $URL = "https://maps.googleapis.com/maps/api/place/details/json?place_id=".$place_id."&fields=name,rating,user_ratings_total,formatted_phone_number&key=".$api_key;
+        $content = file_get_contents($URL, true);
         if (!$content) {
             return false;
         }
-
+        
         $place_data = json_decode($content, true);
         
         if (!array_key_exists('result', $place_data) || !array_key_exists('rating', $place_data['result']) || !array_key_exists('user_ratings_total', $place_data['result'])) {
@@ -172,7 +173,7 @@ class Widget
     public function insert_widget_cache ($uuid, $template_id, $html, $update = false)
     {
         if ($update) {
-            $q = "UPDATE `caches` SET `cache_html` = :h, `cache_created` = :c WHERE `cache_uuid` = :u, `cache_template_id` = :t";
+            $q = "UPDATE `caches` SET `cache_html` = :h, `cache_created` = :c WHERE `cache_uuid` = :u AND `cache_template_id` = :t";
         } else {
             $q = "INSERT INTO `caches` (`cache_uuid`, `cache_template_id`, `cache_html`, `cache_created`) VALUE (:u, :t, :h, :c)";
         }
