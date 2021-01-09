@@ -54,5 +54,45 @@ class Customer
         return $s->execute();
     }
 
+    public function delete_customer_data ($uuid)
+    {
+        $q = "DELETE FROM `customers` WHERE `customer_uuid` = :u";
+        $s = $this->db->prepare($q);
+        $s->bindParam(':u', $uuid);
+        if (!$s->execute()) {
+            return false;
+        }
+
+        $q = "DELETE FROM `caches` WHERE `cache_uuid` = :u";
+        $s = $this->db->prepare($q);
+        $s->bindParam(':u', $uuid);
+        if (!$s->execute()) {
+            return false;
+        }
+
+        $q = "DELETE FROM `ratings` WHERE `rating_uuid` = :u";
+        $s = $this->db->prepare($q);
+        $s->bindParam(':u', $uuid);
+        if (!$s->execute()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function update_customer ($data, $uuid)
+    {
+        $q = "UPDATE `customers` SET ";
+        $i = 0;
+        foreach ($data as $col => $val) {
+            if ($i > 0) { $q .= ', '; }
+            $q .= "`$col` = '$val'";
+            $i++;
+        }
+        $q .= " WHERE `customer_uuid` = '$uuid'";
+        $s = $this->db->prepare($q);
+        return $s->execute();
+    }
+
 }
 
