@@ -15,7 +15,11 @@ class Template
         
         if ($s->execute()) {
             if ($s->rowCount() > 0) {
-                return $s->fetchAll();
+                $templates = $s->fetchAll();
+                for ($i = 0; $i < count($templates); $i++) {
+                    $templates[$i]['template_html'] = htmlspecialchars_decode($templates[$i]['template_html'], ENT_QUOTES);
+                }
+                return $templates;
             }
             return [];
         }
@@ -31,7 +35,9 @@ class Template
         
         if ($s->execute()) {
             if ($s->rowCount() > 0) {
-                return $s->fetch();
+                $template = $s->fetch();
+                $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
+                return $template;
             }
             return false;
         }
