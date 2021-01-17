@@ -44,3 +44,11 @@ function put_response ($status_code, $type, $message)
     echo json_encode(['code' => $status_code, 'type' => $type, 'message' => $message]);
     die();
 }
+
+function filter_stars_to_text ($stars_arr)
+{
+    if ($stars_arr === false) {
+        return '';
+    }
+    return implode(',', $stars_arr);
+}

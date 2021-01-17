@@ -8,12 +8,15 @@ class Widget
         $this->db = $db;
     }
 
-    public function get_widget_template($uuid, $template)
+    public function get_widget_template($uuid, $template, $lang, $mode, $stars)
     {
-        $q = "SELECT * FROM `caches` WHERE `cache_uuid` = :u AND `cache_template_id` = :t";
+        $q = "SELECT * FROM `caches` WHERE `cache_uuid` = :u AND `cache_template_id` = :t AND `cache_lang` = :l AND `cache_mode` = :m AND `cache_stars` = :s";
         $s = $this->db->prepare($q);
         $s->bindParam(':u', $uuid);
         $s->bindParam(':t', $template);
+        $s->bindParam(':l', $lang);
+        $s->bindParam(':m', $mode);
+        $s->bindParam(':s', $stars);
         
         if ($s->execute()) {
             if ($s->rowCount() > 0) {
@@ -70,7 +73,7 @@ class Widget
 
     public function get_reviews_by_language ($col, $val, $lang, $filtered = false, $multiple = false)
     {
-        $q = "SELECT * FROM `reviews` WHERE `$col` = :v AND `review_lang` = :l";
+        $q = "SELECT * FROM `reviews` WHERE `$col` = :v AND `review_lang` = :l ORDER BY `review_time`";
         $s = $this->db->prepare($q);
         $s->bindParam(':v', $val);
         $s->bindParam(':l', $lang);
@@ -164,9 +167,9 @@ class Widget
             if (!empty($vals)) {
                 $vals .= ", ";
             }
-            $vals .= "('".$review['review_uuid']."', '".$review['author_id']."', '".$review['language']."', '".$review['author_name']."', '".$review['text']."', '".$review['rating']."', '".$review['time']."')";
+            $vals .= "('".$review['review_uuid']."', '".$review['author_id']."', '".$review['language']."', '".$review['author_name']."', '".$review['text']."', '".$review['rating']."', '".$review['time']."', '".$review['relative_time_description']."')";
         }
-        $q = "INSERT INTO `reviews` (`review_uuid`, `review_author_id`, `review_lang`, `review_author_name`, `review_text`, `review_rating`, `review_time`) VALUES $vals";
+        $q = "INSERT INTO `reviews` (`review_uuid`, `review_author_id`, `review_lang`, `review_author_name`, `review_text`, `review_rating`, `review_time`, `review_time_description`) VALUES $vals";
 
         $s = $this->db->prepare($q);
         return $s->execute();
@@ -175,12 +178,13 @@ class Widget
     public function update_reviews_data ($reviews)
     {
         foreach ($reviews as $review) {
-            $q = "UPDATE `reviews` SET `review_author_name` = :n, `review_text` = :t, `review_rating` = :r, `review_time` = :c WHERE `review_uuid` = :u AND `review_lang` = :l AND `review_author_id` = :a";
+            $q = "UPDATE `reviews` SET `review_author_name` = :n, `review_text` = :t, `review_rating` = :r, `review_time` = :c, `review_time_description` = :d WHERE `review_uuid` = :u AND `review_lang` = :l AND `review_author_id` = :a";
             $s = $this->db->prepare($q);
             $s->bindParam(":n", $review['author_name']);
             $s->bindParam(":t", $review['text']);
             $s->bindParam(":r", $review['rating']);
             $s->bindParam(":c", $review['time']);
+            $s->bindParam(":d", $review['relative_time_description']);
             $s->bindParam(":u", $review['review_uuid']);
             $s->bindParam(":l", $review['language']);
             $s->bindParam(":a", $review['author_id']);
@@ -253,6 +257,41 @@ class Widget
         return $replaced;
     }
 
+    public function replace_placeholders_reviews ($html, $rating, $reviews)
+    {
+        $html = $this->replace_placeholders($html, $rating);
+
+        $tag_start = '{#comments}';
+        $tag_end = '{/#comments}';
+                
+        $r_start = strpos($html, $tag_start);
+        $r_end = strpos($html, $tag_end);
+        
+        $repeating = substr($html, $r_start, (strlen('{/#comments}') + $r_end) - $r_start);
+        
+        $html = str_replace($repeating, '', $html);
+        $repeating = str_replace($tag_start, '', $repeating);
+        $repeating = str_replace($tag_end, '', $repeating);
+        
+        $comments_html = "";
+        
+        foreach ($reviews as $review) {
+            $review_html = $repeating;
+            // replacing placeholders
+            $review_html = str_replace('{#comment_rating}', $review['review_rating'], $review_html);
+            $review_html = str_replace('{#comment_text}', $review['review_text'], $review_html);
+            $review_html = str_replace('{#comment_time_description}', $review['review_time_description'], $review_html);
+            $review_html = str_replace('{#comment_author_name}', $review['review_author_name'], $review_html);
+            $review_html = str_replace('{#comment_stars_id}', $this->get_svg_star_html_id($review['review_rating']), $review_html);
+            $comments_html .= $review_html;
+        }
+        
+        // inject generated comments back to html
+        $html = substr_replace($html, $comments_html, $r_start, 0);
+
+        return $html;
+    }
+
     public function get_svg_star_html_id ($aggregate)
     {
         // stars-5-0-star
@@ -282,12 +321,12 @@ class Widget
         return $stars_id;
     }
 
-    public function insert_widget_cache ($uuid, $template_id, $html, $update = false)
+    public function insert_widget_cache ($uuid, $template_id, $html, $update, $lang, $mode, $stars)
     {
         if ($update) {
             $q = "UPDATE `caches` SET `cache_html` = :h, `cache_created` = :c WHERE `cache_uuid` = :u AND `cache_template_id` = :t";
         } else {
-            $q = "INSERT INTO `caches` (`cache_uuid`, `cache_template_id`, `cache_html`, `cache_created`) VALUE (:u, :t, :h, :c)";
+            $q = "INSERT INTO `caches` (`cache_uuid`, `cache_template_id`, `cache_html`, `cache_created`, `cache_lang`, `cache_mode`, `cache_stars`) VALUE (:u, :t, :h, :c, :l, :m, :s)";
         }
         
         $s = $this->db->prepare($q);
@@ -296,9 +335,12 @@ class Widget
         $s->bindParam(':h', $html);
         $datetime = current_date();
         $s->bindParam(':c', $datetime);
+        $s->bindParam(':l', $lang);
+        $s->bindParam(':m', $mode);
+        $s->bindParam(':s', $stars);
 
         if ($s->execute()) {
-            return $this->get_widget_template($uuid, $template_id);
+            return $this->get_widget_template($uuid, $template_id, $lang, $mode, $stars);
         }
         return false;
     }

@@ -14,52 +14,54 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
     $uuid = normal_text($_GET['uuid']);
     $template_id = normal_text($_GET['template']);
 
-    // checking for filters
-    
-    // stars filter
-    $filter_stars = false;
-    if (isset($_GET['stars']) && !empty($_GET['stars']) && is_string($_GET['stars'])) {
-        // matching data pattern
-        $stars_arr = explode(',', $_GET['stars']);
-        foreach ($stars_arr as $star) {
-            $star = normal_text($star);
-            if (is_numeric($star) && $star > 0 && $star <= 5) {
-                if (!$filter_stars) {
-                    $filter_stars = [$star];
-                } else {
-                    array_push($filter_stars, $star);
-                }
-            }
-        }
-    }
-    
-    // mode filter
-    $filter_mode = 'L';
-    if (isset($_GET['theme']) && !empty($_GET['theme']) && is_string($_GET['theme']) && $_GET['theme'] === 'dark') {
-        $filter_mode = 'D';
-    }
-
-    // language filter
-    $filter_language = 'en';
-    if (isset($_GET['lang']) && !empty($_GET['lang'])) {
-        $lang = normal_text($_GET['lang']);
-        if (in_array($lang, $allowed_lang)) {
-            $filter_language = $lang;
-        }
-    }
-    
-
     $w = new Widget($db);
     
     // checking user's information
     $user = $w->get_customer_by('customer_uuid', $uuid);
 
     if ($user) {
+
+        // language filter
+        $filter_language = 'en';
+        if (isset($_GET['lang']) && !empty($_GET['lang'])) {
+            $lang = normal_text($_GET['lang']);
+            if (in_array($lang, $allowed_lang)) {
+                $filter_language = $lang;
+            }
+        }
         
         // checking if the template is available
         $template = $w->get_template_by_language('template_id', $template_id, $filter_language);
         
         if ($template) {
+    
+            // stars filter only if widget type is simple
+            $filter_stars = false;
+            if ($template['template_type'] !== 'S' && isset($_GET['stars']) && !empty($_GET['stars']) && is_string($_GET['stars'])) {
+                // matching data pattern
+                $stars_arr = explode(',', $_GET['stars']);
+                foreach ($stars_arr as $star) {
+                    $star = normal_text($star);
+                    if (is_numeric($star) && $star > 0 && $star <= 5) {
+                        if (!$filter_stars) {
+                            $filter_stars = [$star];
+                        } else {
+                            array_push($filter_stars, $star);
+                        }
+                    }
+                }
+
+                // sorting stars lowest to highest
+                if($filter_stars !== false && count($filter_stars) > 1) {
+                    sort($filter_stars);
+                }
+            }
+            
+            // mode filter
+            $filter_mode = 'L';
+            if (isset($_GET['theme']) && !empty($_GET['theme']) && is_string($_GET['theme']) && $_GET['theme'] === 'dark') {
+                $filter_mode = 'D';
+            }
 
             // checking if user's subscription allow template access
             if ($user['customer_subscription'] !== $template['template_subscription'] && ($template['template_subscription'] === 'P' && $user['customer_subscription'] === 'F')) {
@@ -72,7 +74,7 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             }
 
             // cache table query
-            $widget_cache = $w->get_widget_template($uuid, $template['template_id']);
+            $widget_cache = $w->get_widget_template($uuid, $template['template_id'], $filter_language, $filter_mode, filter_stars_to_text($filter_stars));
             $widget_cache_expired = false;
 
             if ($widget_cache) {
@@ -113,11 +115,18 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             // cache not found, create a new widget cache
             
             // replacing placeholders in the html
-            $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
-            $replaced_html = $w->replace_placeholders($template['template_html'], $rating);
-            
+            if ($template['template_type'] === 'S') {
+                // if widget template is without reviews 
+                $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
+                $replaced_html = $w->replace_placeholders($template['template_html'], $rating);
+            } else {
+                // with comment reviews
+                $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
+                $replaced_html = $w->replace_placeholders_reviews($template['template_html'], $rating, $reviews);
+            }
+
             // adding/updating cache
-            $widget_cache = $w->insert_widget_cache($user['customer_uuid'], $template['template_id'], $replaced_html, $widget_cache_expired);
+            $widget_cache = $w->insert_widget_cache($user['customer_uuid'], $template['template_id'], $replaced_html, $widget_cache_expired, $filter_language, $filter_mode, filter_stars_to_text($filter_stars));
             // if cache insertion failed
             if (!$widget_cache) {
                 put_response(500, 'error', 'Server cannot cache the request');
