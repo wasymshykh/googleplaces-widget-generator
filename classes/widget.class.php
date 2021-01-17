@@ -49,7 +49,7 @@ class Widget
             if ($i > 0) {
                 $q .= ' OR ';
             }
-            $q .= "(`cache_uuid` = '".$widget['uuid']."' AND `cache_template_id` = '".$widget['template_id']."')";
+            $q .= "(`cache_uuid` = '".$widget['uuid']."' AND `cache_template_id` = '".$widget['template_id']."' AND `cache_lang` = '".$widget['lang']."')";
             $i++;
         }
         $s = $this->db->prepare($q);

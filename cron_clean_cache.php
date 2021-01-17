@@ -24,7 +24,7 @@ foreach ($widgets as $widget) {
     date('Y-m-d h:i:s', $expiring);
 
     if ($expiring <= $current) {
-        array_push($delete_widgets, ['uuid'=>$widget['cache_uuid'], 'template_id'=>$widget['cache_template_id']]);
+        array_push($delete_widgets, ['uuid'=>$widget['cache_uuid'], 'template_id'=>$widget['cache_template_id'], 'lang' => $widget['cache_lang']]);
     }
 }
 
