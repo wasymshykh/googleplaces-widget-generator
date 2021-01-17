@@ -8,24 +8,24 @@ header("Access-Control-Allow-Methods: GET,POST");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-$c = new Customer($db);
+$c = new Company($db);
 
 if (empty($_GET) && empty($_POST)) {
-    $customers = $c->get_customers();
-    put_response(200, 'success', $customers);
+    $companies = $c->get_companies();
+    put_response(200, 'success', $companies);
 }
 
 if (isset($_GET['uuid'])) {
-    // return the customer with uuid
+    // return the company with uuid
     if (!is_string($_GET['uuid']) || empty(normal_text($_GET['uuid']))) {
-        put_response(400, 'error', 'customer uuid cannot be empty');
+        put_response(400, 'error', 'company uuid cannot be empty');
     } else {
         $uuid = normal_text($_GET['uuid']);
-        $customer = $c->get_customer_by('customer_uuid', $uuid);
-        if ($customer) {
-            put_response(200, 'success', $customer);
+        $company = $c->get_company_by('company_uuid', $uuid);
+        if ($company) {
+            put_response(200, 'success', $company);
         } else {
-            put_response(403, 'error', 'No customer found.');
+            put_response(403, 'error', 'No company found.');
         }
     }
 }
@@ -35,12 +35,12 @@ if (isset($_POST['create'])) {
     $errors = [];
 
     if (!isset($_POST['uuid']) || !is_string($_POST['uuid']) || empty($_POST['uuid'])) {
-        array_push($errors, 'Customer uuid cannot be empty.');
+        array_push($errors, 'Company uuid cannot be empty.');
     } else {
         $uuid = normal_text($_POST['uuid']);
-        $customer = $c->get_customer_by('customer_uuid', $uuid);
-        if ($customer) {
-            array_push($errors, 'Customer with same uuid exists');
+        $company = $c->get_company_by('company_uuid', $uuid);
+        if ($company) {
+            array_push($errors, 'Company with same uuid exists');
         }
     }
 
@@ -81,11 +81,11 @@ if (isset($_POST['create'])) {
     }
     
     if (empty($errors)) {
-        $result = $c->create_customer($uuid, $place, $subscription, $status, $interval);
+        $result = $c->create_company($uuid, $place, $subscription, $status, $interval);
         if ($result) {
-            put_response(200, 'success', 'Customer is successfully added.');
+            put_response(200, 'success', 'Company is successfully added.');
         } else {
-            put_response(500, 'error', 'Cannot add the customer.');
+            put_response(500, 'error', 'Cannot add the company.');
         }
 
     } else {
@@ -101,17 +101,17 @@ if (isset($_POST['delete'])) {
         put_response(403, 'error', 'provide uuid in delete key.');
     } else {
         $uuid = normal_text($_POST['delete']);
-        $customer = $c->get_customer_by('customer_uuid', $uuid);
-        if (!$customer) {
-            put_response(403, 'error', 'customer cannot be found.');
+        $company = $c->get_company_by('company_uuid', $uuid);
+        if (!$company) {
+            put_response(403, 'error', 'company cannot be found.');
         }
     }
 
-    $result = $c->delete_customer_data($uuid);
+    $result = $c->delete_company_data($uuid);
     if ($result) {
-        put_response(200, 'success', 'Customer and linked data is successfully deleted.');
+        put_response(200, 'success', 'Company and linked data is successfully deleted.');
     } else {
-        put_response(500, 'error', 'Cannot delete the customer.');
+        put_response(500, 'error', 'Cannot delete the company.');
     }
 
 }
@@ -123,9 +123,9 @@ if (isset($_POST['update'])) {
         put_response(403, 'error', 'provide uuid in update key.');
     } else {
         $uuid = normal_text($_POST['update']);
-        $customer = $c->get_customer_by('customer_uuid', $uuid);
-        if (!$customer) {
-            put_response(403, 'error', 'customer cannot be found.');
+        $company = $c->get_company_by('company_uuid', $uuid);
+        if (!$company) {
+            put_response(403, 'error', 'company cannot be found.');
         }
     }
 
@@ -134,49 +134,49 @@ if (isset($_POST['update'])) {
 
     if (isset($_POST['uuid']) && isset($_POST['uuid']) && !empty($_POST['uuid'])) {
         $n_uuid = normal_text($_POST['uuid']);
-        $n_customer = $c->get_customer_by('customer_uuid', $n_uuid);
-        if ($n_customer) {
-            array_push($errors, 'Customer with same uuid exists');
+        $n_company = $c->get_company_by('company_uuid', $n_uuid);
+        if ($n_company) {
+            array_push($errors, 'Company with same uuid exists');
         } else {
-            if ($customer['customer_uuid'] !== $n_uuid) {
-                $update['customer_uuid'] = $n_uuid;
+            if ($company['company_uuid'] !== $n_uuid) {
+                $update['company_uuid'] = $n_uuid;
             }
         }
     }
 
     if (isset($_POST['place']) && isset($_POST['place']) && !empty($_POST['place'])) {
         $n_place = normal_text($_POST['place']);
-        if ($customer['customer_place_id'] !== $n_place) {
-            $update['customer_place_id'] = $n_place;
+        if ($company['company_place_id'] !== $n_place) {
+            $update['company_place_id'] = $n_place;
         }
     }
 
     if (isset($_POST['subscription']) && isset($_POST['subscription']) && !empty($_POST['subscription'])) {
         $n_subscription = normal_text($_POST['subscription']);
-        if ($customer['customer_subscription'] !== $n_subscription) {
+        if ($company['company_subscription'] !== $n_subscription) {
             if ($n_subscription !== 'F' && $n_subscription !== 'P') {
                 array_push($errors, 'Subscription value can only be F or P');
             } else {
-                $update['customer_subscription'] = $n_subscription;
+                $update['company_subscription'] = $n_subscription;
             }
         }
     }
 
     if (isset($_POST['status']) && isset($_POST['status']) && !empty($_POST['status'])) {
         $n_status = normal_text($_POST['status']);
-        if ($customer['customer_status'] !== $n_status) {
+        if ($company['company_status'] !== $n_status) {
             if ($n_status !== 'A' && $n_status !== 'I') {
                 array_push($errors, 'Status value can only be A or I');
             } else {
-                $update['customer_status'] = $n_status;
+                $update['company_status'] = $n_status;
             }
         }
     }
 
     if (isset($_POST['interval']) && isset($_POST['interval']) && !empty($_POST['interval'])) {
         $n_interval = normal_text($_POST['interval']);
-        if ($customer['customer_interval'] !== $n_interval) {
-            $update['customer_interval'] = $n_interval;
+        if ($company['company_interval'] !== $n_interval) {
+            $update['company_interval'] = $n_interval;
         }
     }
 
@@ -185,11 +185,11 @@ if (isset($_POST['update'])) {
     }
 
     if (!empty($update)) {
-        $result = $c->update_customer($update, $customer['customer_uuid']);
+        $result = $c->update_company($update, $company['company_uuid']);
         if ($result) {
-            put_response(200, 'success', 'Customer is successfully updated.');
+            put_response(200, 'success', 'Company is successfully updated.');
         } else {
-            put_response(500, 'error', 'Cannot update the customer.');
+            put_response(500, 'error', 'Cannot update the company.');
         }
     } else {
         put_response(200, 'success', 'No changes made.');

@@ -1,6 +1,6 @@
 <?php
 
-class Customer
+class Company
 {
     private $db;
 
@@ -8,9 +8,9 @@ class Customer
         $this->db = $db;
     }
 
-    public function get_customer_by ($col, $val)
+    public function get_company_by ($col, $val)
     {
-        $q = "SELECT * FROM `customers` WHERE `$col` = :v";
+        $q = "SELECT * FROM `companies` WHERE `$col` = :v";
         $s = $this->db->prepare($q);
         $s->bindParam(':v', $val);
         
@@ -23,9 +23,9 @@ class Customer
         return false;
     }
 
-    public function get_customers ()
+    public function get_companies ()
     {
-        $q = "SELECT * FROM `customers`";
+        $q = "SELECT * FROM `companies`";
         $s = $this->db->prepare($q);
         
         if ($s->execute()) {
@@ -37,9 +37,9 @@ class Customer
         return [];
     }
 
-    public function create_customer ($uuid, $place, $subscription, $status, $interval)
+    public function create_company ($uuid, $place, $subscription, $status, $interval)
     {
-        $q = "INSERT INTO `customers` (`customer_uuid`, `customer_place_id`, `customer_subscription`, `customer_status`, `customer_interval`, `customer_created`) VALUE (:u, :p, :s, :t, :i, :dt)";
+        $q = "INSERT INTO `companies` (`company_uuid`, `company_place_id`, `company_subscription`, `company_status`, `company_interval`, `company_created`) VALUE (:u, :p, :s, :t, :i, :dt)";
         
         $s = $this->db->prepare($q);
         $s->bindParam(':u', $uuid);
@@ -53,9 +53,9 @@ class Customer
         return $s->execute();
     }
 
-    public function delete_customer_data ($uuid)
+    public function delete_company_data ($uuid)
     {
-        $q = "DELETE FROM `customers` WHERE `customer_uuid` = :u";
+        $q = "DELETE FROM `companies` WHERE `company_uuid` = :u";
         $s = $this->db->prepare($q);
         $s->bindParam(':u', $uuid);
         if (!$s->execute()) {
@@ -79,16 +79,16 @@ class Customer
         return true;
     }
 
-    public function update_customer ($data, $uuid)
+    public function update_company ($data, $uuid)
     {
-        $q = "UPDATE `customers` SET ";
+        $q = "UPDATE `companies` SET ";
         $i = 0;
         foreach ($data as $col => $val) {
             if ($i > 0) { $q .= ', '; }
             $q .= "`$col` = '$val'";
             $i++;
         }
-        $q .= " WHERE `customer_uuid` = '$uuid'";
+        $q .= " WHERE `company_uuid` = '$uuid'";
         $s = $this->db->prepare($q);
         return $s->execute();
     }

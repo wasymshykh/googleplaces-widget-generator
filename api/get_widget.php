@@ -16,8 +16,8 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
 
     $w = new Widget($db);
     
-    // checking user's information
-    $user = $w->get_customer_by('customer_uuid', $uuid);
+    // checking company's information
+    $user = $w->get_company_by('company_uuid', $uuid);
 
     if ($user) {
 
@@ -66,7 +66,7 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             }
 
             // checking if user's subscription allow template access
-            if ($user['customer_subscription'] !== $template['template_subscription'] && ($template['template_subscription'] === 'P' && $user['customer_subscription'] === 'F')) {
+            if ($user['company_subscription'] !== $template['template_subscription'] && ($template['template_subscription'] === 'P' && $user['company_subscription'] === 'F')) {
                 // user's subscription is F while template is P then choosing the first found free template
                 $template = $w->get_template_by('template_subscription', 'F');
 
@@ -91,33 +91,33 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             }
             
             // getting place rating records
-            $rating = $w->get_rating_by('rating_uuid', $user['customer_uuid']);
-            $reviews = $w->get_reviews_by_language('review_uuid', $user['customer_uuid'], $filter_language, 'review_author_id', true);
+            $rating = $w->get_rating_by('rating_uuid', $user['company_uuid']);
+            $reviews = $w->get_reviews_by_language('review_uuid', $user['company_uuid'], $filter_language, 'review_author_id', true);
 
             if ($rating) {
-                // check the customer interval for refreshing place data
-                $customer_interval = $user['customer_interval'];
-                if (empty($customer_interval)) {
-                    $customer_interval = '30 days';
+                // check the company interval for refreshing place data
+                $company_interval = $user['company_interval'];
+                if (empty($company_interval)) {
+                    $company_interval = '30 days';
                 }
-                $interval_expiry = strtotime($customer_interval, strtotime($rating['rating_last_update']));
+                $interval_expiry = strtotime($company_interval, strtotime($rating['rating_last_update']));
                 $current_time = strtotime('now');
                 if ($interval_expiry <= $current_time) {
-                    $rating = $w->update_place_data($user['customer_uuid'], $user['customer_place_id'], $reviews, $filter_language, $settings->get('google_api_key'), true);
+                    $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $reviews, $filter_language, $settings->get('google_api_key'), true);
                 }
             } else {
                 // getting new place data
-                $rating = $w->update_place_data($user['customer_uuid'], $user['customer_place_id'], $reviews, $filter_language, $settings->get('google_api_key'), false);
+                $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $reviews, $filter_language, $settings->get('google_api_key'), false);
             }
 
             if (isset($rating['review_change']) && $rating['review_change'] === true) {
-                $reviews = $w->get_reviews_by_language('review_uuid', $user['customer_uuid'], $filter_language, 'review_author_id', true);
+                $reviews = $w->get_reviews_by_language('review_uuid', $user['company_uuid'], $filter_language, 'review_author_id', true);
             }
             
             // cache not found, create a new widget cache
 
             $branding = '';
-            if ($user['customer_subscription'] === 'F') {
+            if ($user['company_subscription'] === 'F') {
                 $branding = $settings->get('branding_html');
             }
             
@@ -125,7 +125,7 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             if ($template['template_type'] === 'S') {
                 // if widget template is without reviews 
                 $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
-                $replaced_html = $w->replace_placeholders($template['template_html'], $rating, $user['customer_place_id'], $theme_class[$filter_mode], $branding);
+                $replaced_html = $w->replace_placeholders($template['template_html'], $rating, $user['company_place_id'], $theme_class[$filter_mode], $branding);
             } else {
                 // with comment reviews
                 $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
@@ -141,12 +141,12 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
                     $reviews = $filtered_reviews;
                 }
                 
-                $replaced_html = $w->replace_placeholders_reviews($template['template_html'], $rating, $reviews, $user['customer_place_id'], $theme_class[$filter_mode], $branding);
+                $replaced_html = $w->replace_placeholders_reviews($template['template_html'], $rating, $reviews, $user['company_place_id'], $theme_class[$filter_mode], $branding);
             }
             $replaced_html = $w->minify_html($replaced_html);
 
             // adding/updating cache
-            $widget_cache = $w->insert_widget_cache($user['customer_uuid'], $template['template_id'], $replaced_html, $widget_cache_expired, $filter_language, $filter_mode, filter_stars_to_text($filter_stars));
+            $widget_cache = $w->insert_widget_cache($user['company_uuid'], $template['template_id'], $replaced_html, $widget_cache_expired, $filter_language, $filter_mode, filter_stars_to_text($filter_stars));
             // if cache insertion failed
             if (!$widget_cache) {
                 put_response(500, 'error', 'Server cannot cache the request');
@@ -158,7 +158,7 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             put_response(403, 'error', 'Invalid template');
         }
     } else {
-        put_response(403, 'error', 'Invalid customer');
+        put_response(403, 'error', 'Invalid company');
     }
 }
 

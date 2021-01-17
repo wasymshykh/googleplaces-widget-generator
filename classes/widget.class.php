@@ -200,9 +200,9 @@ class Widget
         return $pat_array[1][0] ?? false;
     }
 
-    public function get_customer_by ($col, $val, $status = 'A')
+    public function get_company_by ($col, $val, $status = 'A')
     {
-        $q = "SELECT * FROM `customers` WHERE `$col` = :v AND `customer_status` = :s";
+        $q = "SELECT * FROM `companies` WHERE `$col` = :v AND `company_status` = :s";
         $s = $this->db->prepare($q);
         $s->bindParam(':v', $val);
         $s->bindParam(':s', $status);
