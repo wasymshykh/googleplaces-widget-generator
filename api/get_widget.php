@@ -34,7 +34,9 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
         $template = $w->get_template_by_language('template_id', $template_id, $filter_language);
         
         if ($template) {
-    
+            // gzip compression start
+            ob_start("ob_gzhandler");
+
             // stars filter only if widget type is simple
             $filter_stars = false;
             if ($template['template_type'] !== 'S' && isset($_GET['stars']) && !empty($_GET['stars']) && is_string($_GET['stars'])) {
@@ -113,17 +115,35 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             }
             
             // cache not found, create a new widget cache
+
+            $branding = '';
+            if ($user['customer_subscription'] === 'F') {
+                $branding = $settings->get('branding_html');
+            }
             
             // replacing placeholders in the html
             if ($template['template_type'] === 'S') {
                 // if widget template is without reviews 
                 $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
-                $replaced_html = $w->replace_placeholders($template['template_html'], $rating);
+                $replaced_html = $w->replace_placeholders($template['template_html'], $rating, $user['customer_place_id'], $theme_class[$filter_mode], $branding);
             } else {
                 // with comment reviews
                 $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
-                $replaced_html = $w->replace_placeholders_reviews($template['template_html'], $rating, $reviews);
+
+                // applying filter on review comments
+                if ($filter_stars && count($reviews) > 0) {
+                    $filtered_reviews = [];
+                    foreach ($reviews as $review) {
+                        if (in_array($review['review_rating'], $filter_stars)) {
+                            array_push($filtered_reviews, $review);
+                        }
+                    }
+                    $reviews = $filtered_reviews;
+                }
+                
+                $replaced_html = $w->replace_placeholders_reviews($template['template_html'], $rating, $reviews, $user['customer_place_id'], $theme_class[$filter_mode], $branding);
             }
+            $replaced_html = $w->minify_html($replaced_html);
 
             // adding/updating cache
             $widget_cache = $w->insert_widget_cache($user['customer_uuid'], $template['template_id'], $replaced_html, $widget_cache_expired, $filter_language, $filter_mode, filter_stars_to_text($filter_stars));

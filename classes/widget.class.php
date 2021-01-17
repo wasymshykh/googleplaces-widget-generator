@@ -248,18 +248,22 @@ class Widget
         return false;
     }
 
-    public function replace_placeholders ($html, $rating)
+    public function replace_placeholders ($html, $rating, $place_id, $mode, $branding)
     {
         $replaced = str_replace('{#aggregate}', $rating['rating_aggregate'], $html);
         $replaced = str_replace('{#reviews_total}', $rating['rating_reviews'], $replaced);
         $replaced = str_replace('{#stars_id}', $this->get_svg_star_html_id($rating['rating_aggregate']), $replaced);
+        $replaced = str_replace('{#place_id}', $place_id, $replaced);
+        $replaced = str_replace('{#mode}', $mode, $replaced);
+        $replaced = str_replace('{#branding}', $branding, $replaced);
+
 
         return $replaced;
     }
 
-    public function replace_placeholders_reviews ($html, $rating, $reviews)
+    public function replace_placeholders_reviews ($html, $rating, $reviews, $place_id, $mode, $branding)
     {
-        $html = $this->replace_placeholders($html, $rating);
+        $html = $this->replace_placeholders($html, $rating, $place_id, $mode, $branding);
 
         $tag_start = '{#comments}';
         $tag_end = '{/#comments}';
@@ -289,6 +293,15 @@ class Widget
         // inject generated comments back to html
         $html = substr_replace($html, $comments_html, $r_start, 0);
 
+        return $html;
+    }
+
+    public function minify_html ($html)
+    {
+        $search = ['/(\n|^)(\x20+|\t)/', '/(\n|^)\/\/(.*?)(\n|$)/', '/\n/',
+            '/\<\!--.*?-->/', '/(\x20+|\t)/', '/\>\s+\</', '/(\"|\')\s+\>/', '/=\s+(\"|\')/'];
+        $replace = ["\n", "\n", " ", "", " ", "><", "$1>", "=$1"];
+        $html = preg_replace($search, $replace, $html);
         return $html;
     }
 

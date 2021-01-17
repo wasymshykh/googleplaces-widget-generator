@@ -27,7 +27,24 @@ function main() {
         $('.gmb-rating').each((i, e) => {
             let w_u = $(e).attr('data-uuid');
             let w_t = $(e).attr('data-template');
-            $.ajax({type: 'GET', url: 'http://localhost/widget/api/get_widget.php', data: {'uuid': w_u, 'template': w_t}, success: function (result) { $(e).html(result.message); }, error: function (result) { $(e).text('WIDGET_ERROR: '+result.responseJSON.message); }}); 
+            let data = {'uuid': w_u, 'template': w_t};
+            
+            let w_f = $(e).attr('data-filter');
+            if (w_f !== undefined && w_f !== "") {
+                data['stars'] = w_f;
+            }
+
+            let w_m = $(e).attr('data-theme');
+            if (w_m !== undefined && w_m !== "") {
+                data['theme'] = w_m;
+            }
+            
+            let w_l = $(e).attr('data-lang');
+            if (w_l !== undefined && w_l !== "") {
+                data['lang'] = w_l;
+            }
+            
+            $.ajax({type: 'GET', url: 'http://localhost/widget/api/get_widget.php', data: data, success: function (result) { $(e).html(result.message); }, error: function (result) { $(e).text('WIDGET_ERROR: '+result.responseJSON.message); }}); 
         })
     });
     // We can still use Prototype here
