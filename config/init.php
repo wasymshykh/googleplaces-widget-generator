@@ -35,3 +35,5 @@
     $db = (new DB())->connect();
     
     $settings = new Settings($db);
+
+    $allowed_lang = ['en', 'es', 'de'];

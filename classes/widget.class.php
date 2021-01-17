@@ -68,9 +68,38 @@ class Widget
         return $multiple ? [] : false;
     }
 
-    public function update_place_data ($uuid, $place_id, $api_key, $existing)
+    public function get_reviews_by_language ($col, $val, $lang, $filtered = false, $multiple = false)
     {
-        $URL = "https://maps.googleapis.com/maps/api/place/details/json?place_id=".$place_id."&fields=name,rating,user_ratings_total,formatted_phone_number&key=".$api_key;
+        $q = "SELECT * FROM `reviews` WHERE `$col` = :v AND `review_lang` = :l";
+        $s = $this->db->prepare($q);
+        $s->bindParam(':v', $val);
+        $s->bindParam(':l', $lang);
+        
+        if ($s->execute()) {
+            if ($s->rowCount() > 0) {
+                if ($filtered !== false && $multiple !== false) {
+                    return $this->_result_by_id_key($filtered, $s->fetchAll());
+                }
+                return $multiple ? $s->fetchAll() : $s->fetch();
+            }
+            return $multiple ? [] : false;
+        }
+        return $multiple ? [] : false;
+    }
+
+    private function _result_by_id_key ($key_name, $arr)
+    {
+        $filtered = [];
+        foreach ($arr as $ar) {
+            $filtered[$ar[$key_name]] = $ar;
+        }
+        return $filtered;
+    }
+
+
+    public function update_place_data ($uuid, $place_id, $old_reviews, $lang, $api_key, $existing)
+    {
+        $URL = "https://maps.googleapis.com/maps/api/place/details/json?place_id=".$place_id."&language=".$lang."&fields=rating,review,user_ratings_total&key=".$api_key;
         $content = file_get_contents($URL, true);
         if (!$content) {
             return false;
@@ -87,18 +116,84 @@ class Widget
         } else {
             $q = "INSERT INTO `ratings`(`rating_uuid`, `rating_aggregate`, `rating_reviews`, `rating_last_update`) VALUE (:u, :a, :r, :l)";
         }
-        
         $s = $this->db->prepare($q);
         $s->bindParam(':u', $uuid);
         $s->bindParam(':a', $place_data['result']['rating']);
         $s->bindParam(':r', $place_data['result']['user_ratings_total']);
         $datetime = current_date();
         $s->bindParam(':l', $datetime);
+        $s->execute();
 
-        if ($s->execute()) {
-            return $this->get_rating_by('rating_uuid', $uuid);
-        }        
-        return false;
+        // updating reviews
+        $to_insert = [];
+        $to_update = [];
+        foreach ($place_data['result']['reviews'] as $review) {
+            // check if review already in the database
+            $author_id = $this->_extract_author_id($review['author_url']);
+            $review['author_id'] = $author_id;
+            $review['review_uuid'] = $uuid;
+            $review['time'] = date('Y-m-d H:i:s', $review['time']);
+            $review['text'] = normal_text($review['text']);
+            if (array_key_exists($author_id, $old_reviews)) {
+                if ($old_reviews[$author_id]['review_text'] != $review['text'] || $old_reviews[$author_id]['review_rating'] != $review['rating']) {
+                    array_push($to_update, $review);
+                }
+            } else {
+                array_push($to_insert, $review);
+            }
+        }
+
+        $review_change = false;
+        if (!empty($to_insert)) {
+            $this->insert_reviews_data($to_insert);
+            $review_change = true;
+        }
+        if (!empty($to_update)) {
+            $this->update_reviews_data($to_update);
+            $review_change = true;
+        }
+        $updated_rating = $this->get_rating_by('rating_uuid', $uuid);
+        $updated_rating['review_change'] = $review_change;
+        return $updated_rating;
+    }
+
+    public function insert_reviews_data ($reviews)
+    {
+        $vals = "";
+        foreach ($reviews as $review) {
+            if (!empty($vals)) {
+                $vals .= ", ";
+            }
+            $vals .= "('".$review['review_uuid']."', '".$review['author_id']."', '".$review['language']."', '".$review['author_name']."', '".$review['text']."', '".$review['rating']."', '".$review['time']."')";
+        }
+        $q = "INSERT INTO `reviews` (`review_uuid`, `review_author_id`, `review_lang`, `review_author_name`, `review_text`, `review_rating`, `review_time`) VALUES $vals";
+
+        $s = $this->db->prepare($q);
+        return $s->execute();
+    }
+
+    public function update_reviews_data ($reviews)
+    {
+        foreach ($reviews as $review) {
+            $q = "UPDATE `reviews` SET `review_author_name` = :n, `review_text` = :t, `review_rating` = :r, `review_time` = :c WHERE `review_uuid` = :u AND `review_lang` = :l AND `review_author_id` = :a";
+            $s = $this->db->prepare($q);
+            $s->bindParam(":n", $review['author_name']);
+            $s->bindParam(":t", $review['text']);
+            $s->bindParam(":r", $review['rating']);
+            $s->bindParam(":c", $review['time']);
+            $s->bindParam(":u", $review['review_uuid']);
+            $s->bindParam(":l", $review['language']);
+            $s->bindParam(":a", $review['author_id']);
+            $s->execute();
+        }
+
+        return true;
+    }
+
+    private function _extract_author_id ($author_url)
+    {
+        preg_match_all ("/^[\w:\/.]+contrib\/(\d+)/i", $author_url, $pat_array);
+        return $pat_array[1][0] ?? false;
     }
 
     public function get_customer_by ($col, $val, $status = 'A')
@@ -122,6 +217,23 @@ class Widget
         $q = "SELECT * FROM `templates` WHERE `$col` = :v";
         $s = $this->db->prepare($q);
         $s->bindParam(':v', $val);
+        
+        if ($s->execute()) {
+            if ($s->rowCount() > 0) {
+                return $s->fetch();
+            }
+            return false;
+        }
+        return false;
+    }
+
+    
+    public function get_template_by_language ($col, $val, $lang)
+    {
+        $q = "SELECT * FROM `templates` WHERE `$col` = :v && `template_lang` = :l";
+        $s = $this->db->prepare($q);
+        $s->bindParam(':v', $val);
+        $s->bindParam(':l', $lang);
         
         if ($s->execute()) {
             if ($s->rowCount() > 0) {
