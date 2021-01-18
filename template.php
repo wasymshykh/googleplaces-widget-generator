@@ -16,21 +16,12 @@ if (empty($_GET) && empty($_POST)) {
 }
 
 if (isset($_GET['id'])) {
-    // return the template with id & language
-    if (!isset($_GET['lang']) || !is_string($_GET['lang']) || empty(normal_text($_GET['lang']))){
-        $lang = "en";
-    } else {
-        $lang = normal_text($_GET['lang']);
-        if (!in_array($lang, $allowed_lang)) {
-            put_response(403, 'error', 'Widget language is not available in allowed language settings.');
-        }
-    }
-
+    // return the template with id
     if (!is_string($_GET['id']) || empty(normal_text($_GET['id']))) {
         put_response(400, 'error', 'template id cannot be empty');
     } else {
         $id = normal_text($_GET['id']);
-        $template = $t->get_template_by_language('template_id', $id, $lang);
+        $template = $t->get_template_by('template_id', $id);
         if ($template) {
             put_response(200, 'success', $template);
         } else {
@@ -41,26 +32,17 @@ if (isset($_GET['id'])) {
 
 if (isset($_POST['delete'])) {
 
-    if (!isset($_POST['lang']) || !is_string($_POST['lang']) || empty(normal_text($_POST['lang']))){
-        $lang = "en";
-    } else {
-        $lang = normal_text($_POST['lang']);
-        if (!in_array($lang, $allowed_lang)) {
-            put_response(403, 'error', 'Widget language is not available in allowed language settings.');
-        }
-    }
-
     if (!is_string($_POST['delete']) || empty($_POST['delete'])) {
         put_response(403, 'error', 'provide template id in delete key.');
     } else {
         $id = normal_text($_POST['delete']);
-        $template = $t->get_template_by_language('template_id', $id, $lang);
+        $template = $t->get_template_by('template_id', $id);
         if (!$template) {
             put_response(403, 'error', 'template cannot be found.');
         }
     }
 
-    $result = $t->delete_template_data($template['template_id'], $lang);
+    $result = $t->delete_template_data($template['template_id']);
     if ($result) {
         put_response(200, 'success', 'Template and linked data is successfully deleted.');
     } else {
@@ -74,22 +56,13 @@ if (isset($_POST['create'])) {
 
     $errors = [];
 
-    if (!isset($_POST['lang']) || !is_string($_POST['lang']) || empty(normal_text($_POST['lang']))){
-        $lang = 'en';
-    } else {
-        $lang = normal_text($_POST['lang']);
-        if (!in_array($lang, $allowed_lang)) {
-            array_push($errors, 'Widget language is not available in allowed language settings.');
-        }
-    }
-
     if (!isset($_POST['id']) || !is_string($_POST['id']) || empty($_POST['id'])) {
         array_push($errors, 'Template id cannot be empty.');
     } else {
         $id = normal_text($_POST['id']);
-        $template = $t->get_template_by_language('template_id', $id, $lang);
+        $template = $t->get_template_by('template_id', $id);
         if ($template) {
-            array_push($errors, 'Template with same id & lang exists');
+            array_push($errors, 'Template with same id exists');
         }
     }
 
@@ -117,17 +90,8 @@ if (isset($_POST['create'])) {
         }
     }
 
-    if (!isset($_POST['lang']) || !is_string($_POST['lang']) || empty(normal_text($_POST['lang']))){
-        array_push($errors, 'Widget language cannot be empty.');
-    } else {
-        $lang = normal_text($_POST['lang']);
-        if (!in_array($lang, $allowed_lang)) {
-            array_push($errors, 'Widget language is not available in allowed language settings.');
-        }
-    }
-
     if (empty($errors)) {
-        $result = $t->create_template($id, $html, $subscription, $type, $lang);
+        $result = $t->create_template($id, $html, $subscription, $type);
         if ($result) {
             put_response(200, 'success', 'Template is successfully added.');
         } else {
@@ -144,20 +108,11 @@ if (isset($_POST['update'])) {
     $errors = [];
     $update = [];
 
-    if (!isset($_POST['lang']) || !is_string($_POST['lang']) || empty(normal_text($_POST['lang']))){
-        $lang = "en";
-    } else {
-        $lang = normal_text($_POST['lang']);
-        if (!in_array($lang, $allowed_lang)) {
-            put_response(403, 'error', 'Widget language is not available in allowed language settings.');
-        }
-    }
-
     if (!is_string($_POST['update']) || empty($_POST['update'])) {
         put_response(403, 'error', 'provide template id in update key.');
     } else {
         $id = normal_text($_POST['update']);
-        $template = $t->get_template_by_language('template_id', $id, $lang);
+        $template = $t->get_template_by('template_id', $id);
         if (!$template) {
             put_response(403, 'error', 'template cannot be found.');
         }
@@ -165,7 +120,7 @@ if (isset($_POST['update'])) {
 
     if (isset($_POST['id']) && isset($_POST['id']) && !empty($_POST['id'])) {
         $n_id = normal_text($_POST['id']);
-        $n_template = $t->get_template_by_language('template_id', $n_id, $lang);
+        $n_template = $t->get_template_by('template_id', $n_id);
         if ($n_template) {
             array_push($errors, 'Template with same id exists');
         } else {
@@ -209,7 +164,7 @@ if (isset($_POST['update'])) {
     }
 
     if (!empty($update)) {
-        $result = $t->update_template($update, $template['template_id'], $lang);
+        $result = $t->update_template($update, $template['template_id']);
         if ($result) {
             put_response(200, 'success', 'Template is successfully updated.');
         } else {

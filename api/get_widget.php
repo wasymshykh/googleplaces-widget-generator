@@ -29,17 +29,18 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
                 $filter_language = $lang;
             }
         }
+        $t = new Translation($db, $filter_language);
         
         // checking if the template is available
-        $template = $w->get_template_by_language('template_id', $template_id, $filter_language);
+        $template = $w->get_template_by('template_id', $template_id);
         
         if ($template) {
             // gzip compression start
             ob_start("ob_gzhandler");
 
-            // stars filter only if widget type is simple
+            // stars filter only if widget type is 'C'
             $filter_stars = false;
-            if ($template['template_type'] !== 'S' && isset($_GET['stars']) && !empty($_GET['stars']) && is_string($_GET['stars'])) {
+            if ($template['template_type'] === 'C' && isset($_GET['stars']) && !empty($_GET['stars']) && is_string($_GET['stars'])) {
                 // matching data pattern
                 $stars_arr = explode(',', $_GET['stars']);
                 foreach ($stars_arr as $star) {
@@ -60,9 +61,9 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             }
             
             // mode filter
-            $filter_mode = 'L';
-            if (isset($_GET['theme']) && !empty($_GET['theme']) && is_string($_GET['theme']) && $_GET['theme'] === 'dark') {
-                $filter_mode = 'D';
+            $filter_mode = '';
+            if (isset($_GET['theme']) && !empty($_GET['theme']) && is_string($_GET['theme'])) {
+                $filter_mode = normal_text($_GET['theme']);
             }
 
             // checking if user's subscription allow template access
@@ -92,7 +93,7 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             
             // getting place rating records
             $rating = $w->get_rating_by('rating_uuid', $user['company_uuid']);
-            $reviews = $w->get_reviews_by_language('review_uuid', $user['company_uuid'], $filter_language, 'review_author_id', true);
+            $reviews = $w->get_reviews_by('review_uuid', $user['company_uuid'], 'review_author_id', true);
 
             if ($rating) {
                 // check the company interval for refreshing place data
@@ -110,8 +111,9 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
                 $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $reviews, $filter_language, $settings->get('google_api_key'), false);
             }
 
+            // checking if there's any change in reviews data
             if (isset($rating['review_change']) && $rating['review_change'] === true) {
-                $reviews = $w->get_reviews_by_language('review_uuid', $user['company_uuid'], $filter_language, 'review_author_id', true);
+                $reviews = $w->get_reviews_by('review_uuid', $user['company_uuid'], 'review_author_id', true);
             }
             
             // cache not found, create a new widget cache

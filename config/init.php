@@ -37,6 +37,4 @@
     $settings = new Settings($db);
 
     $allowed_lang = ['en', 'es', 'de'];
-
-    $theme_class = ['L' => '', 'D' => 'dark'];
     

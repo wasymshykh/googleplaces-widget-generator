@@ -71,12 +71,11 @@ class Widget
         return $multiple ? [] : false;
     }
 
-    public function get_reviews_by_language ($col, $val, $lang, $filtered = false, $multiple = false)
+    public function get_reviews_by ($col, $val, $filtered = false, $multiple = false)
     {
-        $q = "SELECT * FROM `reviews` WHERE `$col` = :v AND `review_lang` = :l ORDER BY `review_time`";
+        $q = "SELECT * FROM `reviews` WHERE `$col` = :v ORDER BY `review_time`";
         $s = $this->db->prepare($q);
         $s->bindParam(':v', $val);
-        $s->bindParam(':l', $lang);
         
         if ($s->execute()) {
             if ($s->rowCount() > 0) {
@@ -102,7 +101,7 @@ class Widget
 
     public function update_place_data ($uuid, $place_id, $old_reviews, $lang, $api_key, $existing)
     {
-        $URL = "https://maps.googleapis.com/maps/api/place/details/json?place_id=".$place_id."&language=".$lang."&fields=rating,review,user_ratings_total&key=".$api_key;
+        $URL = "https://maps.googleapis.com/maps/api/place/details/json?place_id=".$place_id."&fields=rating,review,user_ratings_total&key=".$api_key;
         $content = file_get_contents($URL, true);
         if (!$content) {
             return false;
@@ -231,23 +230,6 @@ class Widget
         return false;
     }
 
-    
-    public function get_template_by_language ($col, $val, $lang)
-    {
-        $q = "SELECT * FROM `templates` WHERE `$col` = :v && `template_lang` = :l";
-        $s = $this->db->prepare($q);
-        $s->bindParam(':v', $val);
-        $s->bindParam(':l', $lang);
-        
-        if ($s->execute()) {
-            if ($s->rowCount() > 0) {
-                return $s->fetch();
-            }
-            return false;
-        }
-        return false;
-    }
-
     public function replace_placeholders ($html, $rating, $place_id, $mode, $branding)
     {
         $replaced = str_replace('{#aggregate}', $rating['rating_aggregate'], $html);
@@ -256,7 +238,6 @@ class Widget
         $replaced = str_replace('{#place_id}', $place_id, $replaced);
         $replaced = str_replace('{#mode}', $mode, $replaced);
         $replaced = str_replace('{#branding}', $branding, $replaced);
-
 
         return $replaced;
     }
@@ -284,6 +265,7 @@ class Widget
             // replacing placeholders
             $review_html = str_replace('{#comment_rating}', $review['review_rating'], $review_html);
             $review_html = str_replace('{#comment_text}', $review['review_text'], $review_html);
+            // TODO: Carbon to translate time description
             $review_html = str_replace('{#comment_time_description}', $review['review_time_description'], $review_html);
             $review_html = str_replace('{#comment_author_name}', $review['review_author_name'], $review_html);
             $review_html = str_replace('{#comment_stars_id}', $this->get_svg_star_html_id($review['review_rating']), $review_html);
