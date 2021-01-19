@@ -36,7 +36,7 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
         
         if ($template) {
             // gzip compression start
-            ob_start("ob_gzhandler");
+            // ob_start("ob_gzhandler");
 
             // stars filter only if widget type is 'C'
             $filter_stars = false;
@@ -127,7 +127,7 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             if ($template['template_type'] === 'S') {
                 // if widget template is without reviews 
                 $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
-                $replaced_html = $w->replace_placeholders($template['template_html'], $rating, $user['company_place_id'], $theme_class[$filter_mode], $branding);
+                $replaced_html = $w->replace_placeholders($template['template_html'], $rating, $user['company_place_id'], $filter_mode, $branding, $t);
             } else {
                 // with comment reviews
                 $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
@@ -143,7 +143,7 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
                     $reviews = $filtered_reviews;
                 }
                 
-                $replaced_html = $w->replace_placeholders_reviews($template['template_html'], $rating, $reviews, $user['company_place_id'], $theme_class[$filter_mode], $branding);
+                $replaced_html = $w->replace_placeholders_reviews($template['template_html'], $rating, $reviews, $user['company_place_id'], $filter_mode, $branding, $t);
             }
             $replaced_html = $w->minify_html($replaced_html);
 

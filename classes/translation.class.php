@@ -4,25 +4,28 @@ class Translation {
 
     private $db;
     private $key_values;
+    public $lang;
     
     public function __construct (PDO $db, $lang = '') {
         $this->db = $db;
+        $this->lang = $lang;
         $this->key_values = $this->get_pairs($lang);
     }
 
     public function get_pairs ($lang)
     {
+        
         if (!empty($lang)) {
-            $q = "SELECT * FROM `translations` WHERE `translation_lang` = :l";
+            $q = "SELECT * FROM `translations` WHERE `translation_lang` = '$lang'";
         } else {
             $q = "SELECT * FROM `translations`";
         }
-
+        
         $s = $this->db->prepare($q);
         
         if ($s->execute()) {
             if ($s->rowCount() > 0) {
-                if (!empty($lang)) {
+                if (empty($lang)) {
                     return $s->fetchAll();
                 }
 

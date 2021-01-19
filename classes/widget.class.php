@@ -1,5 +1,9 @@
 <?php
 
+use Carbon\Carbon;
+
+require '../vendor/Carbon/autoload.php';
+
 class Widget
 {
     private $db;
@@ -230,8 +234,10 @@ class Widget
         return false;
     }
 
-    public function replace_placeholders ($html, $rating, $place_id, $mode, $branding)
+    public function replace_placeholders ($html, $rating, $place_id, $mode, $branding, Translation $t)
     {
+        $html = $this->replace_translations($html, $t);
+
         $replaced = str_replace('{#aggregate}', $rating['rating_aggregate'], $html);
         $replaced = str_replace('{#reviews_total}', $rating['rating_reviews'], $replaced);
         $replaced = str_replace('{#stars_id}', $this->get_svg_star_html_id($rating['rating_aggregate']), $replaced);
@@ -242,9 +248,28 @@ class Widget
         return $replaced;
     }
 
-    public function replace_placeholders_reviews ($html, $rating, $reviews, $place_id, $mode, $branding)
+    public function replace_translations ($html, Translation $t)
     {
-        $html = $this->replace_placeholders($html, $rating, $place_id, $mode, $branding);
+        preg_match_all('/{#translate key="(.*)"}/', $html, $matches, PREG_PATTERN_ORDER);
+        if (!empty($matches)) {
+            // [0] -> whole pattern, [1] -> sub pattern
+            foreach ($matches[1] as $match) {
+                $value = $t->get_by_key($match);
+                if ($value) {
+                    // if key is found
+                    $html = str_replace('{#translate key="'.$match.'"}', $value['translation_value'], $html);
+                } else {
+                    // if no key found
+                    $html = str_replace('{#translate key="'.$match.'"}', $match, $html);
+                }
+            }
+        }
+        return $html;
+    }
+
+    public function replace_placeholders_reviews ($html, $rating, $reviews, $place_id, $mode, $branding, Translation $t)
+    {
+        $html = $this->replace_placeholders($html, $rating, $place_id, $mode, $branding, $t);
 
         $tag_start = '{#comments}';
         $tag_end = '{/#comments}';
@@ -265,8 +290,15 @@ class Widget
             // replacing placeholders
             $review_html = str_replace('{#comment_rating}', $review['review_rating'], $review_html);
             $review_html = str_replace('{#comment_text}', $review['review_text'], $review_html);
-            // TODO: Carbon to translate time description
-            $review_html = str_replace('{#comment_time_description}', $review['review_time_description'], $review_html);
+            if ($t->lang === '') {
+                // google api's original language time description
+                $t->lang = 'en';
+            }
+            // language specific converted time description
+            $d = Carbon::parse($review['review_time'])->locale($t->lang);
+            $description = $d->diffForHumans();
+
+            $review_html = str_replace('{#comment_time_description}', $description, $review_html);
             $review_html = str_replace('{#comment_author_name}', $review['review_author_name'], $review_html);
             $review_html = str_replace('{#comment_stars_id}', $this->get_svg_star_html_id($review['review_rating']), $review_html);
             $comments_html .= $review_html;
