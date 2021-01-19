@@ -103,7 +103,7 @@ class Widget
     }
 
 
-    public function update_place_data ($uuid, $place_id, $old_reviews, $lang, $api_key, $existing)
+    public function update_place_data ($uuid, $place_id, $old_reviews, $api_key, $existing)
     {
         $URL = "https://maps.googleapis.com/maps/api/place/details/json?place_id=".$place_id."&fields=rating,review,user_ratings_total&key=".$api_key;
         $content = file_get_contents($URL, true);

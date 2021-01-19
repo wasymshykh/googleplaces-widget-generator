@@ -36,12 +36,12 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
         
         if ($template) {
             // gzip compression start
-            // ob_start("ob_gzhandler");
+            ob_start("ob_gzhandler");
 
             // stars filter only if widget type is 'C'
             $filter_stars = false;
             if ($template['template_type'] === 'C' && isset($_GET['stars']) && !empty($_GET['stars']) && is_string($_GET['stars'])) {
-                // matching data pattern
+                // matching data pattern and cleaning for potiential danger
                 $stars_arr = explode(',', $_GET['stars']);
                 foreach ($stars_arr as $star) {
                     $star = normal_text($star);
@@ -52,11 +52,6 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
                             array_push($filter_stars, $star);
                         }
                     }
-                }
-
-                // sorting stars lowest to highest
-                if($filter_stars !== false && count($filter_stars) > 1) {
-                    sort($filter_stars);
                 }
             }
             
@@ -104,11 +99,11 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
                 $interval_expiry = strtotime($company_interval, strtotime($rating['rating_last_update']));
                 $current_time = strtotime('now');
                 if ($interval_expiry <= $current_time) {
-                    $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $reviews, $filter_language, $settings->get('google_api_key'), true);
+                    $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $reviews, $settings->get('google_api_key'), true);
                 }
             } else {
                 // getting new place data
-                $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $reviews, $filter_language, $settings->get('google_api_key'), false);
+                $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $reviews, $settings->get('google_api_key'), false);
             }
 
             // checking if there's any change in reviews data
@@ -116,21 +111,21 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
                 $reviews = $w->get_reviews_by('review_uuid', $user['company_uuid'], 'review_author_id', true);
             }
             
-            // cache not found, create a new widget cache
+            // create a new widget cache
 
+            // getting branding text
             $branding = '';
             if ($user['company_subscription'] === 'F') {
                 $branding = $settings->get('branding_html');
             }
             
             // replacing placeholders in the html
+            $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
             if ($template['template_type'] === 'S') {
                 // if widget template is without reviews 
-                $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
                 $replaced_html = $w->replace_placeholders($template['template_html'], $rating, $user['company_place_id'], $filter_mode, $branding, $t);
             } else {
-                // with comment reviews
-                $template['template_html'] = htmlspecialchars_decode($template['template_html'], ENT_QUOTES);
+                // widget with comment reviews
 
                 // applying filter on review comments
                 if ($filter_stars && count($reviews) > 0) {
