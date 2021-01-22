@@ -75,6 +75,26 @@ class Widget
         return $multiple ? [] : false;
     }
 
+    public function get_reviews_by_translation ($col, $val, $lang, $filtered = false, $multiple = false)
+    {
+        $q = "SELECT * FROM `reviews` JOIN `review_translations` ON `review_id` = `rt_review_id` WHERE `$col` = :v AND `rt_lang` = :l ORDER BY `review_time`";
+        $s = $this->db->prepare($q);
+        $s->bindParam(':v', $val);
+        $s->bindParam(':l', $lang);
+        
+        if ($s->execute()) {
+            if ($s->rowCount() > 0) {
+                if ($filtered !== false && $multiple !== false) {
+                    return $this->_result_by_id_key($filtered, $s->fetchAll());
+                }
+                return $multiple ? $s->fetchAll() : $s->fetch();
+            }
+            // Returning without review translation
+            return $this->get_reviews_by($col, $val, $filtered, $multiple);
+        }
+        return $multiple ? [] : false;
+    }
+
     public function get_reviews_by ($col, $val, $filtered = false, $multiple = false)
     {
         $q = "SELECT * FROM `reviews` WHERE `$col` = :v ORDER BY `review_time`";
@@ -103,9 +123,9 @@ class Widget
     }
 
 
-    public function update_place_data ($uuid, $place_id, $old_reviews, $api_key, $existing)
+    public function update_place_data ($uuid, $place_id, $lang, $old_reviews, $api_key, $existing)
     {
-        $URL = "https://maps.googleapis.com/maps/api/place/details/json?place_id=".$place_id."&fields=rating,review,user_ratings_total&key=".$api_key;
+        $URL = "https://maps.googleapis.com/maps/api/place/details/json?language=".$lang."&place_id=".$place_id."&fields=rating,review,user_ratings_total&key=".$api_key;
         $content = file_get_contents($URL, true);
         if (!$content) {
             return false;
@@ -141,7 +161,13 @@ class Widget
             $review['time'] = date('Y-m-d H:i:s', $review['time']);
             $review['text'] = normal_text($review['text']);
             if (array_key_exists($author_id, $old_reviews)) {
-                if ($old_reviews[$author_id]['review_text'] != $review['text'] || $old_reviews[$author_id]['review_rating'] != $review['rating']) {
+                $review['review_id'] = $old_reviews[$author_id]['review_id'];
+                $review['review_text'] = true;
+                $review['review_lang'] = $lang;
+                if (!array_key_exists('rt_text', $old_reviews[$author_id])) {
+                    $review['review_text'] = false;
+                }
+                if (!array_key_exists('rt_text', $old_reviews[$author_id]) || $old_reviews[$author_id]['rt_text'] != $review['text'] || $old_reviews[$author_id]['review_rating'] != $review['rating']) {
                     array_push($to_update, $review);
                 }
             } else {
@@ -165,14 +191,41 @@ class Widget
 
     public function insert_reviews_data ($reviews)
     {
+        foreach ($reviews as $review) {
+            $this->db->beginTransaction();
+            $val = "('".$review['review_uuid']."', '".$review['author_id']."', '".$review['author_name']."', '".$review['rating']."', '".$review['time']."')";
+            $t_val = "(:r, :l, '".$review['text']."')";
+
+            $q = "INSERT INTO `reviews` (`review_uuid`, `review_author_id`, `review_author_name`, `review_rating`, `review_time`) VALUE $val";
+            $s = $this->db->prepare($q);
+            if ($s->execute()) {
+                // inserting into review_translation
+                $review_id = $this->db->lastInsertId();
+                $q = "INSERT INTO `review_translations` (`rt_review_id`, `rt_lang`, `rt_text`) VALUE $t_val";
+                $s = $this->db->prepare($q);
+                $s->bindParam(":r", $review_id);
+                $s->bindParam(":l", $review['language']);
+                if ($s->execute()) {
+                    $this->db->commit();
+                } else {
+                    $this->db->rollBack();
+                }
+            } else {
+                $this->db->rollBack();
+            }
+        }
+    }
+
+    public function insert_reviews_data_old ($reviews)
+    {
         $vals = "";
         foreach ($reviews as $review) {
             if (!empty($vals)) {
                 $vals .= ", ";
             }
-            $vals .= "('".$review['review_uuid']."', '".$review['author_id']."', '".$review['language']."', '".$review['author_name']."', '".$review['text']."', '".$review['rating']."', '".$review['time']."', '".$review['relative_time_description']."')";
+            $vals .= "('".$review['review_uuid']."', '".$review['author_id']."', '".$review['language']."', '".$review['author_name']."', '".$review['text']."', '".$review['rating']."', '".$review['time']."')";
         }
-        $q = "INSERT INTO `reviews` (`review_uuid`, `review_author_id`, `review_lang`, `review_author_name`, `review_text`, `review_rating`, `review_time`, `review_time_description`) VALUES $vals";
+        $q = "INSERT INTO `reviews` (`review_uuid`, `review_author_id`, `review_lang`, `review_author_name`, `review_text`, `review_rating`, `review_time`) VALUES $vals";
 
         $s = $this->db->prepare($q);
         return $s->execute();
@@ -181,13 +234,43 @@ class Widget
     public function update_reviews_data ($reviews)
     {
         foreach ($reviews as $review) {
-            $q = "UPDATE `reviews` SET `review_author_name` = :n, `review_text` = :t, `review_rating` = :r, `review_time` = :c, `review_time_description` = :d WHERE `review_uuid` = :u AND `review_lang` = :l AND `review_author_id` = :a";
+            $q = "UPDATE `reviews` SET `review_author_name` = :n, `review_rating` = :r, `review_time` = :c WHERE `review_uuid` = :u AND `review_author_id` = :a";
+            $s = $this->db->prepare($q);
+            $s->bindParam(":n", $review['author_name']);
+            $s->bindParam(":r", $review['rating']);
+            $s->bindParam(":c", $review['time']);
+            $s->bindParam(":u", $review['review_uuid']);
+            $s->bindParam(":a", $review['author_id']);
+            $s->execute();
+
+            if ($review['review_text']) {
+                // translation is available and need update
+                $q = "UPDATE `review_translations` SET `rt_text` = :t WHERE `rt_review_id` = :i AND `rt_lang` = :l";
+                echo 'U';
+            } else {
+                // that means translation is not available.
+                $q = "INSERT INTO `review_translations` (`rt_review_id`, `rt_text`, `rt_lang`) VALUE (:i, :t, :l)";
+                echo 'I';
+            }
+            $s = $this->db->prepare($q);
+            $s->bindParam(':t', $review['text']);
+            $s->bindParam(':i', $review['review_id']);
+            $s->bindParam(':l', $review['review_lang']);
+            $s->execute();
+        }
+
+        return true;
+    }
+
+    public function update_reviews_data_old ($reviews)
+    {
+        foreach ($reviews as $review) {
+            $q = "UPDATE `reviews` SET `review_author_name` = :n, `review_text` = :t, `review_rating` = :r, `review_time` = :c WHERE `review_uuid` = :u AND `review_lang` = :l AND `review_author_id` = :a";
             $s = $this->db->prepare($q);
             $s->bindParam(":n", $review['author_name']);
             $s->bindParam(":t", $review['text']);
             $s->bindParam(":r", $review['rating']);
             $s->bindParam(":c", $review['time']);
-            $s->bindParam(":d", $review['relative_time_description']);
             $s->bindParam(":u", $review['review_uuid']);
             $s->bindParam(":l", $review['language']);
             $s->bindParam(":a", $review['author_id']);
@@ -289,7 +372,7 @@ class Widget
             $review_html = $repeating;
             // replacing placeholders
             $review_html = str_replace('{#comment_rating}', $review['review_rating'], $review_html);
-            $review_html = str_replace('{#comment_text}', $review['review_text'], $review_html);
+            $review_html = str_replace('{#comment_text}', $review['rt_text'], $review_html);
             if ($t->lang === '') {
                 // google api's original language time description
                 $t->lang = 'en';
@@ -351,7 +434,7 @@ class Widget
     public function insert_widget_cache ($uuid, $template_id, $html, $update, $lang, $mode, $stars)
     {
         if ($update) {
-            $q = "UPDATE `caches` SET `cache_html` = :h, `cache_created` = :c WHERE `cache_uuid` = :u AND `cache_template_id` = :t";
+            $q = "UPDATE `caches` SET `cache_html` = :h, `cache_created` = :c WHERE `cache_stars` = :s AND `cache_mode` = :m AND `cache_lang` = :l AND `cache_uuid` = :u AND `cache_template_id` = :t";
         } else {
             $q = "INSERT INTO `caches` (`cache_uuid`, `cache_template_id`, `cache_html`, `cache_created`, `cache_lang`, `cache_mode`, `cache_stars`) VALUE (:u, :t, :h, :c, :l, :m, :s)";
         }

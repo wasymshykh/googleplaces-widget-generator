@@ -36,7 +36,7 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
         
         if ($template) {
             // gzip compression start
-            ob_start("ob_gzhandler");
+            //ob_start("ob_gzhandler");
 
             // stars filter only if widget type is 'C'
             $filter_stars = false;
@@ -88,9 +88,19 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             
             // getting place rating records
             $rating = $w->get_rating_by('rating_uuid', $user['company_uuid']);
-            $reviews = $w->get_reviews_by('review_uuid', $user['company_uuid'], 'review_author_id', true);
+            $reviews = $w->get_reviews_by_translation('review_uuid', $user['company_uuid'], $filter_language, 'review_author_id', true);
 
+            
             if ($rating) {
+                // checking if translated text is actually available
+                $available = true;
+                foreach ($reviews as $review) {
+                    if (!array_key_exists('rt_text', $review)) {
+                        $available = false;
+                        break;
+                    }
+                }
+
                 // check the company interval for refreshing place data
                 $company_interval = $user['company_interval'];
                 if (empty($company_interval)) {
@@ -98,19 +108,20 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
                 }
                 $interval_expiry = strtotime($company_interval, strtotime($rating['rating_last_update']));
                 $current_time = strtotime('now');
-                if ($interval_expiry <= $current_time) {
-                    $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $reviews, $settings->get('google_api_key'), true);
+
+                if (!$available || $interval_expiry <= $current_time) {
+                    $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $filter_language, $reviews, $settings->get('google_api_key'), true);
                 }
             } else {
                 // getting new place data
-                $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $reviews, $settings->get('google_api_key'), false);
+                $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $filter_language, $reviews, $settings->get('google_api_key'), false);
             }
 
             // checking if there's any change in reviews data
             if (isset($rating['review_change']) && $rating['review_change'] === true) {
-                $reviews = $w->get_reviews_by('review_uuid', $user['company_uuid'], 'review_author_id', true);
+                $reviews = $w->get_reviews_by_translation('review_uuid', $user['company_uuid'], $filter_language, 'review_author_id', true);
             }
-            
+
             // create a new widget cache
 
             // getting branding text
