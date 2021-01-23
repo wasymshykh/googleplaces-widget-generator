@@ -75,17 +75,23 @@ class Widget
         return $multiple ? [] : false;
     }
 
-    public function get_reviews_by_translation ($col, $val, $lang, $filtered = false, $multiple = false)
+    public function remove_imbalance_translations ($review_ids)
     {
-        $q = "SELECT * FROM `reviews` JOIN `review_translations` ON `review_id` = `rt_review_id` WHERE `$col` = :v AND `rt_lang` = :l ORDER BY `review_time`";
+        $q = "DELETE FROM `reviews` WHERE `review_id` IN (".implode(',', $review_ids).")";
+        $s = $this->db->prepare($q);
+        return $s->execute();
+    }
+
+    public function get_reviews_by_translation ($col, $val, $lang, $filtered = false, $multiple = false, $flag = false)
+    {
+        $q = "SELECT * FROM `reviews` LEFT JOIN `review_translations` ON `review_id` = `rt_review_id` WHERE `$col` = :v ORDER BY `review_time`";
         $s = $this->db->prepare($q);
         $s->bindParam(':v', $val);
-        $s->bindParam(':l', $lang);
         
         if ($s->execute()) {
             if ($s->rowCount() > 0) {
                 if ($filtered !== false && $multiple !== false) {
-                    return $this->_result_by_id_key($filtered, $s->fetchAll());
+                    return $this->_result_by_id_key_lang($filtered, $s->fetchAll(), $lang, $flag);
                 }
                 return $multiple ? $s->fetchAll() : $s->fetch();
             }
@@ -93,6 +99,39 @@ class Widget
             return $this->get_reviews_by($col, $val, $filtered, $multiple);
         }
         return $multiple ? [] : false;
+    }
+
+    private function _result_by_id_key_lang ($key_name, $arr, $lang, $flag)
+    {
+
+        $filtered = [];
+        $flagger = true;
+        if ($flag) {
+            $every = [];
+            $filtered['need_update'] = false;
+        }
+        foreach ($arr as $ar) {
+            if ($flag) {
+                if (empty($ar['rt_lang'])) {
+                    $filtered['need_update'] = true;
+                }
+                $every[$ar[$key_name]] = $ar;
+            }
+            if (empty($ar['rt_lang']) || $ar['rt_lang'] === $lang) {
+                $filtered[$ar[$key_name]] = $ar;
+                $flagger = false;
+            }
+        }
+        
+        if ($flagger && $flag) {
+            // author are available but no lang translation
+            foreach ($every as $k => $v) {
+                $filtered[$k] = ['review_id' => $v['review_id'], 'review_uuid' => $v['review_uuid'], 'review_author_id' => $v['review_author_id'], 'review_author_name' => $v['review_author_name'], 'review_rating' => $v['review_rating'], 'review_time' => $v['review_time']];
+            }
+            $filtered['need_update'] = true;
+        }
+
+        return $filtered;
     }
 
     public function get_reviews_by ($col, $val, $filtered = false, $multiple = false)
@@ -164,7 +203,7 @@ class Widget
                 $review['review_id'] = $old_reviews[$author_id]['review_id'];
                 $review['review_text'] = true;
                 $review['review_lang'] = $lang;
-                if (!array_key_exists('rt_text', $old_reviews[$author_id])) {
+                if (!array_key_exists('rt_text', $old_reviews[$author_id]) || (empty($old_reviews[$author_id]['rt_text']) && empty($old_reviews[$author_id]['rt_lang']))) {
                     $review['review_text'] = false;
                 }
                 if (!array_key_exists('rt_text', $old_reviews[$author_id]) || $old_reviews[$author_id]['rt_text'] != $review['text'] || $old_reviews[$author_id]['review_rating'] != $review['rating']) {
@@ -246,11 +285,9 @@ class Widget
             if ($review['review_text']) {
                 // translation is available and need update
                 $q = "UPDATE `review_translations` SET `rt_text` = :t WHERE `rt_review_id` = :i AND `rt_lang` = :l";
-                echo 'U';
             } else {
                 // that means translation is not available.
                 $q = "INSERT INTO `review_translations` (`rt_review_id`, `rt_text`, `rt_lang`) VALUE (:i, :t, :l)";
-                echo 'I';
             }
             $s = $this->db->prepare($q);
             $s->bindParam(':t', $review['text']);
