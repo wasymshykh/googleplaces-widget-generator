@@ -95,8 +95,9 @@ class Widget
                 }
                 return $multiple ? $s->fetchAll() : $s->fetch();
             }
-            // Returning without review translation
-            return $this->get_reviews_by($col, $val, $filtered, $multiple);
+
+            // Returning as there's no translations found
+            return $multiple ? ($flag ? ['need_update' => true] : []) : false;
         }
         return $multiple ? [] : false;
     }
@@ -106,10 +107,12 @@ class Widget
 
         $filtered = [];
         $flagger = true;
+
         if ($flag) {
             $every = [];
             $filtered['need_update'] = false;
         }
+
         foreach ($arr as $ar) {
             if ($flag) {
                 if (empty($ar['rt_lang'])) {

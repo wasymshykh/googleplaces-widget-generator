@@ -91,13 +91,18 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
             $reviews = $w->get_reviews_by_translation('review_uuid', $user['company_uuid'], $filter_language, 'review_author_id', true, true, true);
             
             $need_update = false;
+            
+            
             if (isset($reviews['need_update'])) {
                 $need_update = $reviews['need_update'];
                 unset($reviews['need_update']);
             }
-
             
-            if ($rating || $need_update) {
+            
+            if (!$rating) {
+                // getting new place data
+                $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $filter_language, $reviews, $settings->get('google_api_key'), false);
+            } else if ($rating || $need_update) {
                 
                 // check the company interval for refreshing place data
                 $company_interval = $user['company_interval'];
@@ -115,7 +120,8 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
                     $rating['review_change'] = false;
                     $to_delete = [];
                     $reviews = [];
-
+                    
+                    
                     foreach ($_reviews as $key => $_review) {
                         if (!array_key_exists('rt_lang', $_review) || empty($_review['rt_lang'])) {
                             array_push($to_delete, $_review['review_id']);
@@ -129,9 +135,6 @@ if (isset($_GET['uuid']) && isset($_GET['template']) && is_string($_GET['uuid'])
                     }
                 }
 
-            } else {
-                // getting new place data
-                $rating = $w->update_place_data($user['company_uuid'], $user['company_place_id'], $filter_language, $reviews, $settings->get('google_api_key'), false);
             }
 
             // checking if there's any change in reviews data
